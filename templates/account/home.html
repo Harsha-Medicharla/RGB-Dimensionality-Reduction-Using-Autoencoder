@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+</head>
+<body>
+    <h2>Welcome, {{ user.username }}!</h2>
+    <p>Your email: {{ user.email }}</p>
+    <p>First Name: {{ user.first_name }}</p>
+    <p>Last Name: {{ user.last_name }}</p>
+    <form method="post" action="{% url 'account:logout' %}">
+    {% csrf_token %}
+    <button type="submit">Logout</button>
+</form>
+
+</body>
+</html>
