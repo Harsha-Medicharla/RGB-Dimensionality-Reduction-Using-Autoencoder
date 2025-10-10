@@ -1,17 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .greeting {
+            text-align: center;
+            margin: 100px 0;
+        }
+        .greeting h1 {
+            font-size: 36px;
+            color: #333;
+        }
+        .greeting p {
+            font-size: 18px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .nav-links a {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .messages {
+            margin-bottom: 20px;
+        }
+        .alert {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
 </head>
 <body>
-    <h2>Welcome, {{ user.username }}!</h2>
-    <p>Your email: {{ user.email }}</p>
-    <p>First Name: {{ user.first_name }}</p>
-    <p>Last Name: {{ user.last_name }}</p>
-    <form method="post" action="{% url 'account:logout' %}">
-    {% csrf_token %}
-    <button type="submit">Logout</button>
-</form>
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
+    <div class="header">
+        <h2>Welcome</h2>
+        <div class="nav-links">
+            <a href="{% url 'account:profile' %}">Profile</a>
+            <form method="post" action="{% url 'account:logout' %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="greeting">
+        <h1>Hello, {{ user.get_full_name|default:user.username }}!</h1>
+        <p>Welcome to your dashboard</p>
+    </div>
 </body>
 </html>

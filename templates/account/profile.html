@@ -3,24 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
+    <title>Profile</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 500px;
+            max-width: 600px;
             margin: 50px auto;
             padding: 20px;
         }
-        .register-container {
-            border: 1px solid #ddd;
-            padding: 30px;
-            border-radius: 8px;
-            background-color: #f9f9f9;
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
         }
-        h2 {
-            text-align: center;
+        .nav-links a {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .profile-section {
+            margin-bottom: 30px;
+        }
+        .info-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 14px;
+        }
+        .info-value {
             color: #333;
-            margin-bottom: 20px;
+            margin-top: 5px;
+        }
+        .edit-form {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
         }
         .form-group {
             margin-bottom: 15px;
@@ -33,39 +61,38 @@
         }
         input[type="text"],
         input[type="email"],
-        input[type="password"] {
+        textarea {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
         }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #28a745;
-            color: white;
+        textarea {
+            resize: vertical;
+        }
+        .btn {
+            padding: 10px 20px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
+            margin-right: 10px;
         }
-        button:hover {
-            background-color: #218838;
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
         }
-        .login-link {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
+        .btn-primary:hover {
+            background-color: #0056b3;
         }
-        .login-link a {
-            color: #007bff;
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
             text-decoration: none;
+            display: inline-block;
         }
-        .login-link a:hover {
-            text-decoration: underline;
+        .btn-secondary:hover {
+            background-color: #545b62;
         }
         .messages {
             margin-bottom: 20px;
@@ -75,15 +102,15 @@
             margin-bottom: 10px;
             border-radius: 4px;
         }
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
         .alert-success {
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
         .error-list {
             color: #dc3545;
@@ -92,45 +119,49 @@
             list-style: none;
             padding: 0;
         }
-        .helptext {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-            display: block;
+        h2, h3 {
+            color: #333;
         }
     </style>
 </head>
 <body>
-    <div class="register-container">
-        <h2>Create Account</h2>
-        
-        {% if messages %}
-        <div class="messages">
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-            {% endfor %}
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
         </div>
-        {% endif %}
-        
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="header">
+        <h2>My Profile</h2>
+        <div class="nav-links">
+            <a href="{% url 'account:home' %}">Home</a>
+        </div>
+    </div>
+
+    <div class="profile-section">
+        <h3>Account Information</h3>
+        <div class="info-item">
+            <div class="info-label">Username</div>
+            <div class="info-value">{{ user.username }}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Account Created</div>
+            <div class="info-value">{{ user.created_at|date:"F d, Y" }}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Last Updated</div>
+            <div class="info-value">{{ user.updated_at|date:"F d, Y" }}</div>
+        </div>
+    </div>
+
+    <div class="edit-form">
+        <h3>Edit Profile</h3>
         <form method="post">
             {% csrf_token %}
-            
-            <div class="form-group">
-                <label for="{{ form.username.id_for_label }}">Username *</label>
-                {{ form.username }}
-                {% if form.username.help_text %}
-                    <span class="helptext">{{ form.username.help_text }}</span>
-                {% endif %}
-                {% if form.username.errors %}
-                    <ul class="error-list">
-                        {% for error in form.username.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
             
             <div class="form-group">
                 <label for="{{ form.email.id_for_label }}">Email Address *</label>
@@ -143,7 +174,7 @@
                     </ul>
                 {% endif %}
             </div>
-            
+
             <div class="form-group">
                 <label for="{{ form.first_name.id_for_label }}">First Name *</label>
                 {{ form.first_name }}
@@ -155,7 +186,7 @@
                     </ul>
                 {% endif %}
             </div>
-            
+
             <div class="form-group">
                 <label for="{{ form.last_name.id_for_label }}">Last Name *</label>
                 {{ form.last_name }}
@@ -167,7 +198,7 @@
                     </ul>
                 {% endif %}
             </div>
-            
+
             <div class="form-group">
                 <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
                 {{ form.phone_number }}
@@ -179,48 +210,22 @@
                     </ul>
                 {% endif %}
             </div>
-            
+
             <div class="form-group">
-                <label for="{{ form.password1.id_for_label }}">Password *</label>
-                {{ form.password1 }}
-                {% if form.password1.help_text %}
-                    <span class="helptext">{{ form.password1.help_text }}</span>
-                {% endif %}
-                {% if form.password1.errors %}
+                <label for="{{ form.bio.id_for_label }}">Bio</label>
+                {{ form.bio }}
+                {% if form.bio.errors %}
                     <ul class="error-list">
-                        {% for error in form.password1.errors %}
+                        {% for error in form.bio.errors %}
                             <li>{{ error }}</li>
                         {% endfor %}
                     </ul>
                 {% endif %}
             </div>
-            
-            <div class="form-group">
-                <label for="{{ form.password2.id_for_label }}">Confirm Password *</label>
-                {{ form.password2 }}
-                {% if form.password2.errors %}
-                    <ul class="error-list">
-                        {% for error in form.password2.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            
-            {% if form.non_field_errors %}
-                <div class="alert alert-error">
-                    {% for error in form.non_field_errors %}
-                        {{ error }}
-                    {% endfor %}
-                </div>
-            {% endif %}
-            
-            <button type="submit">Create Account</button>
+
+            <button type="submit" class="btn btn-primary">Update Profile</button>
+            <a href="{% url 'account:home' %}" class="btn btn-secondary">Cancel</a>
         </form>
-        
-        <div class="login-link">
-            <p>Already have an account? <a href="{% url 'account:login' %}">Login here</a></p>
-        </div>
     </div>
 </body>
 </html>
