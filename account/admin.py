@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, OTP
+from .models import CustomUser, OTP, ImageUpload
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -39,4 +39,17 @@ class OTPAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request):
         # Prevent manual creation of OTPs through admin
+        return False
+
+
+@admin.register(ImageUpload)
+class ImageUploadAdmin(admin.ModelAdmin):
+    list_display = ['user', 'uploaded_at', 'processed']
+    list_filter = ['processed', 'uploaded_at']
+    search_fields = ['user__username', 'user__email']
+    readonly_fields = ['uploaded_at']
+    ordering = ['-uploaded_at']
+    
+    def has_add_permission(self, request):
+        # Prevent manual creation through admin
         return False

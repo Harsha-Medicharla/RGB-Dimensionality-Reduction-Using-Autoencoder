@@ -1,7 +1,9 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.password_validation import validate_password
-from .models import CustomUser
+from django.core.exceptions import ValidationError
+from PIL import Image
+from .models import CustomUser, ImageUpload
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -69,3 +71,55 @@ class PasswordResetConfirmForm(forms.Form):
                 raise forms.ValidationError(e)
 
         return cleaned_data
+
+
+class ImageUploadForm(forms.ModelForm):
+    class Meta:
+        model = ImageUpload
+        fields = ['input_image']
+        widgets = {
+            'input_image': forms.FileInput(attrs={
+                'accept': 'image/png',
+                'class': 'image-input'
+            })
+        }
+    
+    def clean_input_image(self):
+        image = self.cleaned_data.get('input_image')
+        
+        if not image:
+            raise ValidationError("Please upload an image.")
+        
+        # Check file extension
+        if not image.name.lower().endswith('.png'):
+            raise ValidationError("Only PNG images are allowed.")
+        
+        # Check file size (must be less than 1MB)
+        if image.size > 1 * 1024 * 1024:  # 1MB in bytes
+            raise ValidationError("Image file size must be less than 1MB.")
+        
+        # Check image dimensions and format
+        try:
+            img = Image.open(image)
+            
+            # Check if it's a valid PNG
+            if img.format != 'PNG':
+                raise ValidationError("Only PNG format is allowed.")
+            
+            # Check dimensions (must be 96x96)
+            if img.size != (96, 96):
+                raise ValidationError(f"Image must be exactly 96x96 pixels. Your image is {img.size[0]}x{img.size[1]} pixels.")
+            
+            # Check if it's a color image (RGB or RGBA)
+            if img.mode not in ['RGB', 'RGBA']:
+                raise ValidationError("Image must be a color image (RGB or RGBA mode).")
+            
+            # Reset file pointer for later use
+            image.seek(0)
+            
+        except Exception as e:
+            if isinstance(e, ValidationError):
+                raise
+            raise ValidationError(f"Invalid image file: {str(e)}")
+        
+        return image

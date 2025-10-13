@@ -1,16 +1,82 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-from .forms import CustomUserCreationForm, CustomLoginForm, UserUpdateForm, PasswordResetRequestForm, PasswordResetConfirmForm
-from .models import CustomUser, OTP
+from django.core.files.base import ContentFile
+from PIL import Image, ImageFilter
+import io
+from .forms import (CustomUserCreationForm, CustomLoginForm, UserUpdateForm, 
+                    PasswordResetRequestForm, PasswordResetConfirmForm, ImageUploadForm)
+from .models import CustomUser, OTP, ImageUpload
 
 @login_required
 def home(request):
-    return render(request, "account/home.html")
+    if request.method == 'POST':
+        form = ImageUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            image_upload = form.save(commit=False)
+            image_upload.user = request.user
+            image_upload.save()
+            
+            # Process the image (dummy processing for now)
+            process_image(image_upload)
+            
+            messages.success(request, 'Image uploaded and processed successfully!')
+            return redirect('account:results', pk=image_upload.pk)
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
+    else:
+        form = ImageUploadForm()
+    
+    # Get recent uploads
+    recent_uploads = ImageUpload.objects.filter(user=request.user)[:5]
+    
+    return render(request, "account/home.html", {
+        'form': form,
+        'recent_uploads': recent_uploads
+    })
+
+
+@login_required
+def results_view(request, pk):
+    image_upload = get_object_or_404(ImageUpload, pk=pk, user=request.user)
+    return render(request, 'account/results.html', {'image_upload': image_upload})
+
+
+def process_image(image_upload):
+    """
+    Dummy image processing function.
+    In production, this would call your actual ML model.
+    For now, it just applies a simple blur filter as a placeholder.
+    """
+    try:
+        # Open the input image
+        img = Image.open(image_upload.input_image)
+        
+        # Dummy processing: Apply a blur filter
+        # Replace this with your actual model inference
+        processed_img = img.filter(ImageFilter.GaussianBlur(radius=2))
+        
+        # Save the processed image
+        output_io = io.BytesIO()
+        processed_img.save(output_io, format='PNG')
+        output_io.seek(0)
+        
+        # Save to the output_image field
+        filename = f"processed_{image_upload.id}.png"
+        image_upload.output_image.save(filename, ContentFile(output_io.read()), save=False)
+        image_upload.processed = True
+        image_upload.save()
+        
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        # In production, you might want to log this error properly
+
 
 @login_required
 def profile(request):
@@ -68,17 +134,14 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            # Save user but don't activate yet
             user = form.save(commit=False)
-            user.is_active = True  # Keep active but mark email as unverified
+            user.is_active = True
             user.email_verified = False
             user.save()
             
-            # Generate and send OTP
             otp = OTP.create_otp(user.email, 'registration')
             send_otp_email(user.email, otp.otp_code, 'registration')
             
-            # Store email in session for OTP verification
             request.session['pending_verification_email'] = user.email
             request.session['pending_user_id'] = user.id
             
@@ -114,20 +177,16 @@ def verify_otp_view(request):
             )
             
             if otp.is_valid():
-                # Mark OTP as used
                 otp.is_used = True
                 otp.save()
                 
-                # Verify user email
                 user = CustomUser.objects.get(id=request.session.get('pending_user_id'))
                 user.email_verified = True
                 user.save()
                 
-                # Clear session
                 del request.session['pending_verification_email']
                 del request.session['pending_user_id']
                 
-                # Log user in
                 login(request, user)
                 messages.success(request, 'Email verified successfully! Welcome!')
                 return redirect('account:home')
@@ -144,7 +203,6 @@ def resend_otp_view(request):
         messages.error(request, 'No pending verification found.')
         return redirect('account:register')
     
-    # Generate new OTP
     otp = OTP.create_otp(email, 'registration')
     send_otp_email(email, otp.otp_code, 'registration')
     
@@ -158,7 +216,6 @@ def password_reset_request_view(request):
         if form.is_valid():
             email = request.user.email
             
-            # Generate and send OTP
             otp = OTP.create_otp(email, 'password_reset')
             send_otp_email(email, otp.otp_code, 'password_reset')
             
@@ -192,19 +249,15 @@ def password_reset_confirm_view(request):
                 )
                 
                 if otp.is_valid():
-                    # Mark OTP as used
                     otp.is_used = True
                     otp.save()
                     
-                    # Update password
                     user = request.user
                     user.set_password(new_password)
                     user.save()
                     
-                    # Update session to prevent logout
                     update_session_auth_hash(request, user)
                     
-                    # Clear session
                     del request.session['password_reset_email']
                     
                     messages.success(request, 'Password changed successfully!')
@@ -225,7 +278,6 @@ def resend_password_reset_otp_view(request):
         messages.error(request, 'Invalid password reset session.')
         return redirect('account:profile')
     
-    # Generate new OTP
     otp = OTP.create_otp(email, 'password_reset')
     send_otp_email(email, otp.otp_code, 'password_reset')
     

@@ -63,3 +63,19 @@ class OTP(models.Model):
         ordering = ['-created_at']
         verbose_name = 'OTP'
         verbose_name_plural = 'OTPs'
+
+
+class ImageUpload(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='images')
+    input_image = models.ImageField(upload_to='uploads/input/')
+    output_image = models.ImageField(upload_to='uploads/output/', null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    processed = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Image Upload'
+        verbose_name_plural = 'Image Uploads'
