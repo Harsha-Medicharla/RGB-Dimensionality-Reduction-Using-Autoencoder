@@ -94,6 +94,15 @@
         .btn-secondary:hover {
             background-color: #545b62;
         }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
         .messages {
             margin-bottom: 20px;
         }
@@ -121,6 +130,20 @@
         }
         h2, h3 {
             color: #333;
+        }
+        .password-reset-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+            border: 1px solid #ffeaa7;
+        }
+        .password-reset-section h3 {
+            margin-top: 0;
+        }
+        .password-reset-section p {
+            color: #856404;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -226,6 +249,12 @@
             <button type="submit" class="btn btn-primary">Update Profile</button>
             <a href="{% url 'account:home' %}" class="btn btn-secondary">Cancel</a>
         </form>
+    </div>
+
+    <div class="password-reset-section">
+        <h3>Security</h3>
+        <p>Want to change your password? You'll receive an OTP via email to verify the change.</p>
+        <a href="{% url 'account:password_reset_request' %}" class="btn btn-warning">Reset Password</a>
     </div>
 </body>
 </html>
