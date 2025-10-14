@@ -6,7 +6,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from django.core.files.base import ContentFile
-from PIL import Image, ImageFilter
+from PIL import Image
 import io
 import tensorflow as tf
 import numpy as np
@@ -19,6 +19,72 @@ import os
 from django.conf import settings
 
 
+# Define the custom EnhancedAutoEncoder class matching your training code
+class EnhancedAutoEncoder(tf.keras.Model):
+    def __init__(self, **kwargs):
+        super(EnhancedAutoEncoder, self).__init__(**kwargs)
+        
+        # Encoder - matches your training architecture
+        self.encoder = tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(96, 96, 3)),
+            tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same')
+        ], name="encoder")
+        
+        # Decoder - matches your training architecture
+        self.decoder = tf.keras.Sequential([
+            tf.keras.layers.Conv2DTranspose(16, (3, 3), strides=2, activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Conv2DTranspose(32, (3, 3), strides=2, activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Conv2D(3, (3, 3), activation='sigmoid', padding='same')
+        ], name="decoder")
+    
+    def call(self, inputs):
+        encoded = self.encoder(inputs)
+        decoded = self.decoder(encoded)
+        return decoded
+    
+    def get_config(self):
+        config = super(EnhancedAutoEncoder, self).get_config()
+        return config
+
+
+# Load the Keras model once when the module is loaded
+MODEL_PATH = os.path.join(settings.BASE_DIR, 'enhanced_autoencoder.keras')
+autoencoder_model = None
+
+# Debug: Print the expected model path
+print(f"Looking for model at: {MODEL_PATH}")
+print(f"BASE_DIR is: {settings.BASE_DIR}")
+print(f"Model file exists: {os.path.exists(MODEL_PATH)}")
+
+try:
+    if os.path.exists(MODEL_PATH):
+        # Load with custom objects
+        autoencoder_model = tf.keras.models.load_model(
+            MODEL_PATH,
+            custom_objects={'EnhancedAutoEncoder': EnhancedAutoEncoder}
+        )
+        print(f"✓ Model loaded successfully from {MODEL_PATH}")
+    else:
+        print(f"✗ Model file not found at {MODEL_PATH}")
+        print(f"✗ Please place enhanced_autoencoder.keras in: {settings.BASE_DIR}")
+except Exception as e:
+    print(f"✗ Error loading model: {e}")
+    import traceback
+    traceback.print_exc()
+    autoencoder_model = None
+
 
 @login_required
 def home(request):
@@ -29,7 +95,7 @@ def home(request):
             image_upload.user = request.user
             image_upload.save()
             
-            # Process the image (dummy processing for now)
+            # Process the image with the autoencoder
             process_image(image_upload)
             
             messages.success(request, 'Image uploaded and processed successfully!')
@@ -58,17 +124,34 @@ def results_view(request, pk):
 
 def process_image(image_upload):
     """
-    Dummy image processing function.
-    In production, this would call your actual ML model.
-    For now, it just applies a simple blur filter as a placeholder.
+    Process image using the enhanced autoencoder model.
     """
     try:
-        # Open the input image
+        if autoencoder_model is None:
+            raise Exception("Model not loaded. Please ensure enhanced_autoencoder.keras is in the project root.")
+        
+        # Open and prepare the input image
         img = Image.open(image_upload.input_image)
         
-        # Dummy processing: Apply a blur filter
-        # Replace this with your actual model inference
-        processed_img = img.filter(ImageFilter.GaussianBlur(radius=2))
+        # Convert to RGB if necessary (in case of RGBA)
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+        
+        # Convert PIL image to numpy array and normalize to [0, 1]
+        img_array = np.array(img).astype('float32') / 255.0
+        
+        # Add batch dimension: (96, 96, 3) -> (1, 96, 96, 3)
+        img_array = np.expand_dims(img_array, axis=0)
+        
+        # Run inference through the autoencoder
+        processed_array = autoencoder_model.predict(img_array, verbose=0)
+        
+        # Remove batch dimension and denormalize: (1, 96, 96, 3) -> (96, 96, 3)
+        processed_array = processed_array[0]
+        processed_array = np.clip(processed_array * 255.0, 0, 255).astype('uint8')
+        
+        # Convert back to PIL Image
+        processed_img = Image.fromarray(processed_array, mode='RGB')
         
         # Save the processed image
         output_io = io.BytesIO()
@@ -83,7 +166,10 @@ def process_image(image_upload):
         
     except Exception as e:
         print(f"Error processing image: {e}")
-        # In production, you might want to log this error properly
+        # Mark as not processed if there's an error
+        image_upload.processed = False
+        image_upload.save()
+        raise
 
 
 @login_required
