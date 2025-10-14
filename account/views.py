@@ -8,9 +8,17 @@ from django.utils import timezone
 from django.core.files.base import ContentFile
 from PIL import Image, ImageFilter
 import io
+import tensorflow as tf
+import numpy as np
+
 from .forms import (CustomUserCreationForm, CustomLoginForm, UserUpdateForm, 
                     PasswordResetRequestForm, PasswordResetConfirmForm, ImageUploadForm)
 from .models import CustomUser, OTP, ImageUpload
+
+import os
+from django.conf import settings
+
+
 
 @login_required
 def home(request):
