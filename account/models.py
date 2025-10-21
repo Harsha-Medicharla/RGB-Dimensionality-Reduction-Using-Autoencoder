@@ -13,6 +13,7 @@ class CustomUser(AbstractUser):
     email_verified = models.BooleanField(default=False)
 
     def __str__(self):
+        # Returns username as string representation
         return self.username
 
     class Meta:
@@ -34,24 +35,24 @@ class OTP(models.Model):
     is_used = models.BooleanField(default=False)
     
     def __str__(self):
+        # Returns email, type, and code as string
         return f"{self.email} - {self.otp_type} - {self.otp_code}"
     
     def is_valid(self):
+        # Checks if OTP is still valid
         return not self.is_used and timezone.now() < self.expires_at
     
     @staticmethod
     def generate_otp():
+        # Generates a 6-digit OTP
         return str(random.randint(100000, 999999))
     
     @classmethod
     def create_otp(cls, email, otp_type):
-        # Invalidate old OTPs
+        # Creates and returns a new OTP after invalidating old ones
         cls.objects.filter(email=email, otp_type=otp_type, is_used=False).update(is_used=True)
-        
-        # Create new OTP
         otp_code = cls.generate_otp()
         expires_at = timezone.now() + timedelta(minutes=5)
-        
         return cls.objects.create(
             email=email,
             otp_code=otp_code,
@@ -73,6 +74,7 @@ class ImageUpload(models.Model):
     processed = models.BooleanField(default=False)
     
     def __str__(self):
+        # Returns username and upload timestamp
         return f"{self.user.username} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"
     
     class Meta:

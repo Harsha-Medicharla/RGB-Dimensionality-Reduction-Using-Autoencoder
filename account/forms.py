@@ -4,16 +4,33 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from PIL import Image
 from .models import CustomUser, ImageUpload
+import re
+
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=150, required=True)
     last_name = forms.CharField(max_length=150, required=True)
-    phone_number = forms.CharField(max_length=15, required=False)
+    phone_number = forms.CharField(max_length=10, required=False)
 
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'first_name', 'last_name', 'phone_number', 'password1', 'password2']
+    
+    # Validate phone number format
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get('phone_number')
+        if phone:
+            if not re.fullmatch(r'\d{10}', phone):
+                raise ValidationError("Phone number must be exactly 10 digits.")
+        return phone
+
+    # Validate bio length
+    def clean_bio(self):
+        bio = self.cleaned_data.get('bio')
+        if bio and len(bio) > 400:
+            raise ValidationError("Bio cannot exceed 400 characters.")
+        return bio
 
 
 class CustomLoginForm(AuthenticationForm):
@@ -29,6 +46,22 @@ class UserUpdateForm(forms.ModelForm):
             'bio': forms.Textarea(attrs={'rows': 4}),
         }
 
+    # Validate phone number format
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get('phone_number')
+        if phone:
+            import re
+            if not re.fullmatch(r'\d{10}', phone):
+                raise ValidationError("Phone number must be exactly 10 digits.")
+        return phone
+
+    # Validate bio length
+    def clean_bio(self):
+        bio = self.cleaned_data.get('bio')
+        if bio and len(bio) > 400:
+            raise ValidationError("Bio cannot exceed 400 characters.")
+        return bio
+
 
 class PasswordResetRequestForm(forms.Form):
     """Form to initiate password reset"""
@@ -36,7 +69,6 @@ class PasswordResetRequestForm(forms.Form):
 
 
 class PasswordResetConfirmForm(forms.Form):
-    """Form to confirm password reset with OTP"""
     otp_code = forms.CharField(
         max_length=6,
         min_length=6,
@@ -55,6 +87,7 @@ class PasswordResetConfirmForm(forms.Form):
         label='Confirm New Password'
     )
 
+    # Validate OTP and password match + strength
     def clean(self):
         cleaned_data = super().clean()
         password1 = cleaned_data.get('new_password1')
@@ -64,7 +97,6 @@ class PasswordResetConfirmForm(forms.Form):
             if password1 != password2:
                 raise forms.ValidationError("Passwords don't match.")
             
-            # Validate password strength
             try:
                 validate_password(password1)
             except forms.ValidationError as e:
@@ -84,37 +116,31 @@ class ImageUploadForm(forms.ModelForm):
             })
         }
     
+    # Validate uploaded image (format, size, dimensions)
     def clean_input_image(self):
         image = self.cleaned_data.get('input_image')
         
         if not image:
             raise ValidationError("Please upload an image.")
         
-        # Check file extension
         if not image.name.lower().endswith('.png'):
             raise ValidationError("Only PNG images are allowed.")
         
-        # Check file size (must be less than 1MB)
-        if image.size > 1 * 1024 * 1024:  # 1MB in bytes
+        if image.size > 1 * 1024 * 1024:  # 1MB
             raise ValidationError("Image file size must be less than 1MB.")
         
-        # Check image dimensions and format
         try:
             img = Image.open(image)
             
-            # Check if it's a valid PNG
             if img.format != 'PNG':
                 raise ValidationError("Only PNG format is allowed.")
             
-            # Check dimensions (must be 96x96)
             if img.size != (96, 96):
                 raise ValidationError(f"Image must be exactly 96x96 pixels. Your image is {img.size[0]}x{img.size[1]} pixels.")
             
-            # Check if it's a color image (RGB or RGBA)
             if img.mode not in ['RGB', 'RGBA']:
                 raise ValidationError("Image must be a color image (RGB or RGBA mode).")
             
-            # Reset file pointer for later use
             image.seek(0)
             
         except Exception as e:

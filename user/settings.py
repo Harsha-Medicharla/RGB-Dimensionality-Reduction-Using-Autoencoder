@@ -118,15 +118,16 @@ MESSAGE_TAGS = {
 }
 
 # Email Configuration
+
 # For development, use console backend (prints emails to console)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # For production with Gmail, uncomment and configure:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'your-email@gmail.com'  # Your Gmail address
-# EMAIL_HOST_PASSWORD = 'your-app-password'  # Use App Password, not regular password
-# DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'userauth.autoencoder@gmail.com' 
+EMAIL_HOST_PASSWORD = 'zoqg ncnp dkqj ijst'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
