@@ -28,6 +28,24 @@
             margin-bottom: 20px;
             font-size: 14px;
         }
+        .countdown-timer {
+            text-align: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .countdown-timer.expired {
+            background: #dc3545;
+        }
+        .timer-label {
+            font-size: 12px;
+            font-weight: normal;
+            opacity: 0.9;
+        }
         .form-group {
             margin-bottom: 15px;
         }
@@ -61,6 +79,10 @@
         button:hover {
             background-color: #218838;
         }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         .resend-link {
             text-align: center;
             margin-top: 20px;
@@ -70,9 +92,27 @@
         .resend-link a {
             color: #007bff;
             text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            display: inline-block;
         }
         .resend-link a:hover {
-            text-decoration: underline;
+            background-color: #e7f3ff;
+        }
+        .resend-link a.disabled {
+            color: #999;
+            cursor: not-allowed;
+            pointer-events: none;
+            background-color: #f0f0f0;
+        }
+        .resend-cooldown {
+            display: block;
+            margin-top: 10px;
+            color: #856404;
+            font-size: 13px;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
         }
         .messages {
             margin-bottom: 20px;
@@ -103,6 +143,11 @@
             Please enter it below to verify your email.
         </p>
         
+        <div class="countdown-timer" id="countdownTimer">
+            <div class="timer-label">OTP expires in</div>
+            <div id="timerDisplay">--:--</div>
+        </div>
+        
         {% if messages %}
         <div class="messages">
             {% for message in messages %}
@@ -113,7 +158,7 @@
         </div>
         {% endif %}
         
-        <form method="post">
+        <form method="post" id="otpForm">
             {% csrf_token %}
             
             <div class="form-group">
@@ -128,12 +173,66 @@
                        autofocus>
             </div>
             
-            <button type="submit">Verify Email</button>
+            <button type="submit" id="verifyBtn">Verify Email</button>
         </form>
         
         <div class="resend-link">
-            <p>Didn't receive the OTP? <a href="{% url 'account:resend_otp' %}">Resend OTP</a></p>
+            <p>Didn't receive the OTP? 
+                <a href="{% url 'account:resend_otp' %}" id="resendLink">Resend OTP</a>
+            </p>
+            <span class="resend-cooldown" id="resendCooldown" style="display: none;"></span>
         </div>
     </div>
+
+    <script>
+        let timeRemaining = "{{ time_remaining|default:0|escapejs }}";
+        let resendCooldown = "{{ resend_cooldown|default:0|escapejs }}";
+        timeRemaining = parseInt(timeRemaining);
+        resendCooldown = parseInt(resendCooldown);
+        const timerDisplay = document.getElementById('timerDisplay');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const resendLink = document.getElementById('resendLink');
+        const resendCooldownDiv = document.getElementById('resendCooldown');
+
+        function updateTimer() {
+            if (timeRemaining > 0) {
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                timeRemaining--;
+            } else {
+                timerDisplay.textContent = 'EXPIRED';
+                countdownTimer.classList.add('expired');
+                verifyBtn.disabled = true;
+                clearInterval(timerInterval);
+            }
+        }
+
+        function updateResendCooldown() {
+            if (resendCooldown > 0) {
+                const minutes = Math.floor(resendCooldown / 60);
+                const seconds = resendCooldown % 60;
+                resendLink.classList.add('disabled');
+                resendCooldownDiv.style.display = 'block';
+                resendCooldownDiv.textContent = `Too many attempts. Wait ${minutes}m ${seconds}s before resending`;
+                resendCooldown--;
+            } else {
+                resendLink.classList.remove('disabled');
+                resendCooldownDiv.style.display = 'none';
+                clearInterval(cooldownInterval);
+            }
+        }
+
+        // Start countdown timer
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+
+        // Start resend cooldown if applicable
+        if (resendCooldown > 0) {
+            updateResendCooldown();
+            var cooldownInterval = setInterval(updateResendCooldown, 1000);
+        }
+    </script>
 </body>
 </html>

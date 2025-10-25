@@ -233,6 +233,21 @@ def verify_otp_view(request):
     if not email:
         messages.error(request, 'No pending verification found.')
         return redirect('account:register')
+    
+    # Get the latest valid OTP for countdown
+    try:
+        latest_otp = OTP.objects.filter(
+            email=email, 
+            otp_type='registration', 
+            is_used=False
+        ).latest('created_at')
+        time_remaining = latest_otp.time_remaining()
+    except OTP.DoesNotExist:
+        time_remaining = 0
+    
+    # Check resend cooldown
+    resend_cooldown = OTP.get_resend_cooldown(email, 'registration')
+    
     if request.method == 'POST':
         otp_code = request.POST.get('otp_code')
         try:
@@ -252,7 +267,12 @@ def verify_otp_view(request):
                 messages.error(request, 'OTP expired.')
         except OTP.DoesNotExist:
             messages.error(request, 'Invalid OTP.')
-    return render(request, 'account/verify_otp.html', {'email': email})
+    
+    return render(request, 'account/verify_otp.html', {
+        'email': email,
+        'time_remaining': time_remaining,
+        'resend_cooldown': resend_cooldown
+    })
 
 
 def resend_otp_view(request):
@@ -261,6 +281,13 @@ def resend_otp_view(request):
     if not email:
         messages.error(request, 'No pending verification found.')
         return redirect('account:register')
+    
+    # Check if user can resend
+    if not OTP.can_resend(email, 'registration'):
+        cooldown = OTP.get_resend_cooldown(email, 'registration')
+        messages.error(request, f'Too many resend attempts. Please wait {cooldown // 60} minutes and {cooldown % 60} seconds.')
+        return redirect('account:verify_otp')
+    
     otp = OTP.create_otp(email, 'registration')
     send_otp_email(email, otp.otp_code, 'registration')
     messages.success(request, 'New OTP sent to email.')
@@ -301,6 +328,20 @@ def forgot_password_confirm_view(request):
         messages.error(request, 'Invalid reset session.')
         return redirect('account:forgot_password_request')
     
+    # Get the latest valid OTP for countdown
+    try:
+        latest_otp = OTP.objects.filter(
+            email=email, 
+            otp_type='password_reset', 
+            is_used=False
+        ).latest('created_at')
+        time_remaining = latest_otp.time_remaining()
+    except OTP.DoesNotExist:
+        time_remaining = 0
+    
+    # Check resend cooldown
+    resend_cooldown = OTP.get_resend_cooldown(email, 'password_reset')
+    
     if request.method == 'POST':
         form = PasswordResetConfirmForm(request.POST)
         if form.is_valid():
@@ -323,7 +364,13 @@ def forgot_password_confirm_view(request):
     else:
         form = PasswordResetConfirmForm()
     
-    return render(request, 'account/forgot_password_confirm.html', {'form': form, 'email': email})
+    return render(request, 'account/forgot_password_confirm.html', {
+        'form': form, 
+        'email': email,
+        'time_remaining': time_remaining,
+        'resend_cooldown': resend_cooldown
+    })
+
 
 
 def resend_forgot_password_otp_view(request):
@@ -336,10 +383,17 @@ def resend_forgot_password_otp_view(request):
         messages.error(request, 'Invalid reset session.')
         return redirect('account:forgot_password_request')
     
+    # Check if user can resend
+    if not OTP.can_resend(email, 'password_reset'):
+        cooldown = OTP.get_resend_cooldown(email, 'password_reset')
+        messages.error(request, f'Too many resend attempts. Please wait {cooldown // 60} minutes and {cooldown % 60} seconds.')
+        return redirect('account:forgot_password_confirm')
+    
     otp = OTP.create_otp(email, 'password_reset')
     send_otp_email(email, otp.otp_code, 'password_reset')
     messages.success(request, 'New OTP sent to email.')
     return redirect('account:forgot_password_confirm')
+
 
 
 @login_required
@@ -366,6 +420,21 @@ def password_reset_confirm_view(request):
     if not email or email != request.user.email:
         messages.error(request, 'Invalid reset session.')
         return redirect('account:profile')
+    
+    # Get the latest valid OTP for countdown
+    try:
+        latest_otp = OTP.objects.filter(
+            email=email, 
+            otp_type='password_reset', 
+            is_used=False
+        ).latest('created_at')
+        time_remaining = latest_otp.time_remaining()
+    except OTP.DoesNotExist:
+        time_remaining = 0
+    
+    # Check resend cooldown
+    resend_cooldown = OTP.get_resend_cooldown(email, 'password_reset')
+    
     if request.method == 'POST':
         form = PasswordResetConfirmForm(request.POST)
         if form.is_valid():
@@ -388,7 +457,13 @@ def password_reset_confirm_view(request):
                 messages.error(request, 'Invalid OTP.')
     else:
         form = PasswordResetConfirmForm()
-    return render(request, 'account/password_reset_confirm.html', {'form': form})
+    
+    return render(request, 'account/password_reset_confirm.html', {
+        'form': form,
+        'time_remaining': time_remaining,
+        'resend_cooldown': resend_cooldown
+    })
+
 
 
 @login_required
@@ -398,11 +473,17 @@ def resend_password_reset_otp_view(request):
     if not email or email != request.user.email:
         messages.error(request, 'Invalid reset session.')
         return redirect('account:profile')
+    
+    # Check if user can resend
+    if not OTP.can_resend(email, 'password_reset'):
+        cooldown = OTP.get_resend_cooldown(email, 'password_reset')
+        messages.error(request, f'Too many resend attempts. Please wait {cooldown // 60} minutes and {cooldown % 60} seconds.')
+        return redirect('account:password_reset_confirm')
+    
     otp = OTP.create_otp(email, 'password_reset')
     send_otp_email(email, otp.otp_code, 'password_reset')
     messages.success(request, 'New OTP sent to email.')
     return redirect('account:password_reset_confirm')
-
 
 def send_otp_email(email, otp_code, otp_type):
     """Send OTP email for verification or password reset."""
@@ -413,3 +494,4 @@ def send_otp_email(email, otp_code, otp_type):
         subject = 'Password Reset OTP'
         message = f'Your OTP for password reset is: {otp_code}\n\nExpires in 5 minutes.'
     send_mail(subject, message, settings.EMAIL_HOST_USER, [email], fail_silently=False)
+

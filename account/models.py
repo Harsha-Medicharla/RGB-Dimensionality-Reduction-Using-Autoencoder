@@ -35,21 +35,55 @@ class OTP(models.Model):
     is_used = models.BooleanField(default=False)
     
     def __str__(self):
-        # Returns email, type, and code as string
         return f"{self.email} - {self.otp_type} - {self.otp_code}"
     
     def is_valid(self):
-        # Checks if OTP is still valid
         return not self.is_used and timezone.now() < self.expires_at
+    
+    def time_remaining(self):
+        """Returns seconds remaining until expiration"""
+        if self.is_used:
+            return 0
+        remaining = (self.expires_at - timezone.now()).total_seconds()
+        return max(0, int(remaining))
     
     @staticmethod
     def generate_otp():
-        # Generates a 6-digit OTP
         return str(random.randint(100000, 999999))
     
     @classmethod
+    def can_resend(cls, email, otp_type):
+        """Check if user can resend OTP (max 5 in 10 minutes)"""
+        ten_minutes_ago = timezone.now() - timedelta(minutes=10)
+        recent_otps = cls.objects.filter(
+            email=email,
+            otp_type=otp_type,
+            created_at__gte=ten_minutes_ago
+        ).count()
+        return recent_otps < 5
+    
+    @classmethod
+    def get_resend_cooldown(cls, email, otp_type):
+        """Get seconds until user can resend again"""
+        ten_minutes_ago = timezone.now() - timedelta(minutes=10)
+        recent_otps = cls.objects.filter(
+            email=email,
+            otp_type=otp_type,
+            created_at__gte=ten_minutes_ago
+        ).order_by('created_at')
+        
+        if recent_otps.count() < 5:
+            return 0
+        
+        # Get the oldest OTP in the window
+        oldest_otp = recent_otps.first()
+        cooldown_end = oldest_otp.created_at + timedelta(minutes=10)
+        remaining = (cooldown_end - timezone.now()).total_seconds()
+        return max(0, int(remaining))
+    
+    @classmethod
     def create_otp(cls, email, otp_type):
-        # Creates and returns a new OTP after invalidating old ones
+        """Creates and returns a new OTP after invalidating old ones"""
         cls.objects.filter(email=email, otp_type=otp_type, is_used=False).update(is_used=True)
         otp_code = cls.generate_otp()
         expires_at = timezone.now() + timedelta(minutes=5)
@@ -74,7 +108,6 @@ class ImageUpload(models.Model):
     processed = models.BooleanField(default=False)
     
     def __str__(self):
-        # Returns username and upload timestamp
         return f"{self.user.username} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"
     
     class Meta:
