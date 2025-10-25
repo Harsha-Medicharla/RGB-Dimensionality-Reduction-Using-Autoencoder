@@ -267,9 +267,84 @@ def resend_otp_view(request):
     return redirect('account:verify_otp')
 
 
+def forgot_password_request_view(request):
+    """Request OTP for password reset (public - no login required)."""
+    if request.user.is_authenticated:
+        return redirect('account:home')
+    
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            user = CustomUser.objects.get(email=email)
+            if not user.email_verified:
+                messages.error(request, 'Email not verified. Please verify your email first.')
+                return render(request, 'account/forgot_password_request.html')
+            
+            otp = OTP.create_otp(email, 'password_reset')
+            send_otp_email(email, otp.otp_code, 'password_reset')
+            request.session['forgot_password_email'] = email
+            messages.success(request, 'OTP sent to your email.')
+            return redirect('account:forgot_password_confirm')
+        except CustomUser.DoesNotExist:
+            messages.error(request, 'No account found with this email.')
+    
+    return render(request, 'account/forgot_password_request.html')
+
+
+def forgot_password_confirm_view(request):
+    """Confirm OTP and reset password (public - no login required)."""
+    if request.user.is_authenticated:
+        return redirect('account:home')
+    
+    email = request.session.get('forgot_password_email')
+    if not email:
+        messages.error(request, 'Invalid reset session.')
+        return redirect('account:forgot_password_request')
+    
+    if request.method == 'POST':
+        form = PasswordResetConfirmForm(request.POST)
+        if form.is_valid():
+            otp_code = form.cleaned_data.get('otp_code')
+            new_password = form.cleaned_data.get('new_password1')
+            try:
+                otp = OTP.objects.get(email=email, otp_code=otp_code, otp_type='password_reset', is_used=False)
+                if otp.is_valid():
+                    otp.is_used = True
+                    otp.save()
+                    user = CustomUser.objects.get(email=email)
+                    user.set_password(new_password)
+                    user.save()
+                    del request.session['forgot_password_email']
+                    messages.success(request, 'Password reset successfully! Please login.')
+                    return redirect('account:login')
+                messages.error(request, 'OTP expired.')
+            except OTP.DoesNotExist:
+                messages.error(request, 'Invalid OTP.')
+    else:
+        form = PasswordResetConfirmForm()
+    
+    return render(request, 'account/forgot_password_confirm.html', {'form': form, 'email': email})
+
+
+def resend_forgot_password_otp_view(request):
+    """Resend forgot password OTP (public - no login required)."""
+    if request.user.is_authenticated:
+        return redirect('account:home')
+    
+    email = request.session.get('forgot_password_email')
+    if not email:
+        messages.error(request, 'Invalid reset session.')
+        return redirect('account:forgot_password_request')
+    
+    otp = OTP.create_otp(email, 'password_reset')
+    send_otp_email(email, otp.otp_code, 'password_reset')
+    messages.success(request, 'New OTP sent to email.')
+    return redirect('account:forgot_password_confirm')
+
+
 @login_required
 def password_reset_request_view(request):
-    """Request OTP for password reset."""
+    """Request OTP for password reset (logged in users)."""
     if request.method == 'POST':
         form = PasswordResetRequestForm(request.POST)
         if form.is_valid():
@@ -286,7 +361,7 @@ def password_reset_request_view(request):
 
 @login_required
 def password_reset_confirm_view(request):
-    """Confirm OTP and reset password."""
+    """Confirm OTP and reset password (logged in users)."""
     email = request.session.get('password_reset_email')
     if not email or email != request.user.email:
         messages.error(request, 'Invalid reset session.')
@@ -318,7 +393,7 @@ def password_reset_confirm_view(request):
 
 @login_required
 def resend_password_reset_otp_view(request):
-    """Resend password reset OTP."""
+    """Resend password reset OTP (logged in users)."""
     email = request.session.get('password_reset_email')
     if not email or email != request.user.email:
         messages.error(request, 'Invalid reset session.')
@@ -333,8 +408,8 @@ def send_otp_email(email, otp_code, otp_type):
     """Send OTP email for verification or password reset."""
     if otp_type == 'registration':
         subject = 'Email Verification OTP'
-        message = f'Your OTP for email verification is: {otp_code}\n\nExpires in 10 minutes.'
+        message = f'Your OTP for email verification is: {otp_code}\n\nExpires in 5 minutes.'
     else:
         subject = 'Password Reset OTP'
-        message = f'Your OTP for password reset is: {otp_code}\n\nExpires in 10 minutes.'
+        message = f'Your OTP for password reset is: {otp_code}\n\nExpires in 5 minutes.'
     send_mail(subject, message, settings.EMAIL_HOST_USER, [email], fail_silently=False)
