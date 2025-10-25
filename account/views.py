@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from datetime import datetime
 from django.core.files.base import ContentFile
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -69,6 +70,17 @@ except Exception as e:
     autoencoder_model = None
 
 
+def get_session_info(request):
+    """Get session expiry information"""
+    try:
+        # Get session expiry age in seconds
+        expiry_age = request.session.get_expiry_age()
+        return max(0, int(expiry_age))
+    except:
+        # Fallback to session cookie age if expiry not set
+        return settings.SESSION_COOKIE_AGE
+
+
 def validate_image(image_file):
     """Validate image properties (format, size, dimensions, color)."""
     try:
@@ -91,6 +103,9 @@ def validate_image(image_file):
 @login_required
 def home(request):
     """Handle image upload and trigger processing."""
+    # Get session expiry time
+    session_time_remaining = get_session_info(request)
+    
     if request.method == 'POST':
         form = ImageUploadForm(request.POST, request.FILES)
         if form.is_valid():
@@ -98,7 +113,10 @@ def home(request):
             is_valid, error_message = validate_image(image_file)
             if not is_valid:
                 messages.error(request, f"Image validation failed: {error_message}")
-                return render(request, "account/home.html", {'form': form})
+                return render(request, "account/home.html", {
+                    'form': form,
+                    'session_time_remaining': session_time_remaining
+                })
             image_upload = form.save(commit=False)
             image_upload.user = request.user
             image_upload.save()
@@ -115,15 +133,24 @@ def home(request):
                     messages.error(request, error)
     else:
         form = ImageUploadForm()
+    
     recent_uploads = ImageUpload.objects.filter(user=request.user)[:5]
-    return render(request, "account/home.html", {'form': form, 'recent_uploads': recent_uploads})
+    return render(request, "account/home.html", {
+        'form': form,
+        'recent_uploads': recent_uploads,
+        'session_time_remaining': session_time_remaining
+    })
 
 
 @login_required
 def results_view(request, pk):
     """Display processed image results."""
+    session_time_remaining = get_session_info(request)
     image_upload = get_object_or_404(ImageUpload, pk=pk, user=request.user)
-    return render(request, 'account/results.html', {'image_upload': image_upload})
+    return render(request, 'account/results.html', {
+        'image_upload': image_upload,
+        'session_time_remaining': session_time_remaining
+    })
 
 
 def process_image(image_upload):
@@ -156,6 +183,8 @@ def process_image(image_upload):
 @login_required
 def profile(request):
     """Display and update user profile."""
+    session_time_remaining = get_session_info(request)
+    
     if request.method == 'POST':
         form = UserUpdateForm(request.POST, instance=request.user)
         if form.is_valid():
@@ -165,7 +194,10 @@ def profile(request):
         messages.error(request, 'Please correct the errors below.')
     else:
         form = UserUpdateForm(instance=request.user)
-    return render(request, 'account/profile.html', {'form': form})
+    return render(request, 'account/profile.html', {
+        'form': form,
+        'session_time_remaining': session_time_remaining
+    })
 
 
 def login_view(request):
@@ -183,6 +215,9 @@ def login_view(request):
                     messages.error(request, 'Verify your email before login.')
                     return redirect('account:login')
                 login(request, user)
+                # Force session to use our configured timeout
+                request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+                request.session.modified = True
                 messages.success(request, f'Welcome back, {username}!')
                 return redirect(request.GET.get('next', 'account:home'))
             messages.error(request, 'Invalid username or password.')
@@ -261,6 +296,8 @@ def verify_otp_view(request):
                 del request.session['pending_verification_email']
                 del request.session['pending_user_id']
                 login(request, user)
+                # Set session expiry explicitly
+                request.session.set_expiry(settings.SESSION_COOKIE_AGE)
                 messages.success(request, 'Email verified successfully!')
                 return redirect('account:home')
             else:
@@ -494,4 +531,3 @@ def send_otp_email(email, otp_code, otp_type):
         subject = 'Password Reset OTP'
         message = f'Your OTP for password reset is: {otp_code}\n\nExpires in 5 minutes.'
     send_mail(subject, message, settings.EMAIL_HOST_USER, [email], fail_silently=False)
-

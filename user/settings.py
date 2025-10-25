@@ -117,6 +117,14 @@ MESSAGE_TAGS = {
     messages.ERROR: 'error',
 }
 
+# Session Configuration
+SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds (change to desired timeout)
+SESSION_SAVE_EVERY_REQUEST = False  # Update session expiry on every request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session even if browser closes (until timeout)
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+
 # Email Configuration
 
 # For development, use console backend (prints emails to console)
@@ -130,4 +138,3 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'userauth.autoencoder@gmail.com' 
 EMAIL_HOST_PASSWORD = 'zoqg ncnp dkqj ijst'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
