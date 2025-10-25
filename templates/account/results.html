@@ -1,337 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image Processing Evaluation & Visualization</title>
-
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-
-body {
-  font-family: 'Poppins', 'Segoe UI', sans-serif;
-  background: #f7f8fc; /* clean white-gray background */
-  min-height: 100vh;
-  padding: 30px;
-  color: #333;
-}
-
-/* 🌟 Main Container */
-.container {
-  max-width: 1250px;
-  margin: auto;
-  background: #ffffff;
-  padding: 40px;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  animation: fadeIn 1s ease;
-}
-
-/* 🔹 Header */
-.header {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:30px;
-}
-.header h2 {
-  font-size:28px;
-  color:#333;
-  font-weight:700;
-}
-.nav-links a {
-  text-decoration:none;
-  color:#667eea;
-  font-weight:600;
-  margin-left:20px;
-  transition:0.3s;
-}
-.nav-links a:hover {
-  color:#764ba2;
-  text-decoration:underline;
-}
-
-/* 🔹 Results Header */
-.results-header {
-  text-align:center;
-  margin-bottom:30px;
-}
-.results-header h3 {
-  font-size:26px;
-  color:#333;
-  margin-bottom:8px;
-}
-.upload-info {
-  font-size:14px;
-  color:#666;
-}
-
-/* 🔹 Buttons */
-.action-buttons {
-  display:flex;
-  justify-content:center;
-  gap:20px;
-  margin-bottom:30px;
-  flex-wrap:wrap;
-}
-.btn {
-  padding:12px 28px;
-  border-radius:8px;
-  font-size:16px;
-  font-weight:600;
-  text-decoration:none;
-  color:#fff;
-  transition:all 0.3s ease;
-  box-shadow:0 4px 12px rgba(0,0,0,0.15);
-}
-.btn-primary {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-}
-.btn-success {
-  background: linear-gradient(45deg, #28a745, #52b788);
-}
-.btn-secondary {
-  background: linear-gradient(45deg, #6c757d, #adb5bd);
-}
-.btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-}
-
-/* 🔹 Status Box */
-.processing-status {
-  text-align:center;
-  padding:18px;
-  border-radius:10px;
-  margin-bottom:30px;
-  font-size:16px;
-}
-.processing-status.success {
-  background:#e8f5e9;
-  color:#155724;
-  border:1px solid #c8e6c9;
-}
-.processing-status.in-progress {
-  background:#fff9c4;
-  color:#856404;
-  border:1px solid #fff59d;
-}
-
-/* 🔹 Image Comparison */
-.comparison {
-  display:flex;
-  justify-content:space-between;
-  gap:25px;
-  flex-wrap:wrap;
-  margin-bottom:40px;
-}
-.image-box {
-  flex:1 1 30%;
-  text-align:center;
-  background:#f9f9f9;
-  border-radius:12px;
-  padding:20px;
-  border:1px solid #e0e0e0;
-  transition:transform 0.3s ease, box-shadow 0.3s ease;
-}
-.image-box:hover {
-  transform:translateY(-5px);
-  box-shadow:0 6px 20px rgba(0,0,0,0.15);
-}
-.image-label {
-  font-size:18px;
-  font-weight:600;
-  margin-bottom:12px;
-  color:#fff;
-  background:linear-gradient(45deg, #667eea, #764ba2);
-  padding:8px;
-  border-radius:8px;
-}
-.result-image {
-  max-width:100%;
-  border-radius:8px;
-  border:2px solid #eee;
-}
-.image-dimensions {
-  font-size:13px;
-  color:#666;
-  margin-top:8px;
-}
-
-/* 🔹 Metrics Box */
-.metrics {
-  background:#f9fafc;
-  padding:25px;
-  border-radius:12px;
-  text-align:center;
-  border:1px solid #e0e0e0;
-  margin-bottom:30px;
-  box-shadow:0 3px 10px rgba(0,0,0,0.05);
-}
-.metrics h3 {
-  font-size:22px;
-  margin-bottom:15px;
-  color:#333;
-}
-.metrics p {
-  font-size:17px;
-  margin:6px 0;
-}
-
-/* 🔹 Chart Section */
-.charts {
-  background:#f9fafc;
-  padding:25px;
-  border-radius:12px;
-  border:1px solid #e0e0e0;
-  box-shadow:0 3px 10px rgba(0,0,0,0.05);
-  text-align:center;
-}
-.charts h3 {
-  font-size:22px;
-  margin-bottom:20px;
-  color:#333;
-}
-
-/* Make graphs smaller but still readable */
-canvas {
-  max-width: 420px;
-  height: 260px !important;
-  margin: 20px auto;
-  display: block;
-}
-
-/* Animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width:768px) {
-  .comparison { flex-direction:column; }
-  .image-box { flex:1 1 100%; }
-}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .header h2 {
+            color: #333;
+            font-size: 24px;
+        }
+        .nav-links a {
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            margin-left: 20px;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #764ba2;
+        }
+        .results-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .results-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .results-header h3 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .upload-info {
+            color: #666;
+            font-size: 14px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .image-box {
+            text-align: center;
+        }
+        .image-label {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+        }
+        .image-wrapper {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 3px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        .image-wrapper:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transform: translateY(-5px);
+        }
+        .result-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        .image-dimensions {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #999;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .processing-status {
+            text-align: center;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeaa7;
+        }
+        .processing-status.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .status-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .status-text {
+            color: #856404;
+            font-size: 16px;
+        }
+        .status-text.success {
+            color: #155724;
+        }
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            .action-buttons {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h2>Processing Results</h2>
+            <div class="nav-links">
+                <a href="{% url 'account:home' %}">← Back to Home</a>
+                <a href="{% url 'account:profile' %}">Profile</a>
+            </div>
+        </div>
 
-<div class="container">
+        <div class="results-container">
+            <div class="results-header">
+                <h3>Image Processing Complete</h3>
+                <div class="upload-info">
+                    Uploaded: {{ image_upload.uploaded_at|date:"F d, Y at H:i" }}
+                </div>
+            </div>
 
-    <div class="header">
-        <h2>Image Processing Results</h2>
-        <div class="nav-links">
-            <a href="{% url 'account:home' %}">← Home</a>
-            <a href="{% url 'account:profile' %}">Profile</a>
+            {% if image_upload.processed %}
+            <div class="processing-status success">
+                <div class="status-icon">✓</div>
+                <div class="status-text success">Processing completed successfully!</div>
+            </div>
+
+            <div class="comparison">
+                <div class="image-box">
+                    <div class="image-label">Input Image</div>
+                    <div class="image-wrapper">
+                        <img src="{{ image_upload.input_image.url }}" alt="Input Image" class="result-image">
+                        <div class="image-dimensions">96x96 pixels</div>
+                    </div>
+                </div>
+
+                <div class="image-box">
+                    <div class="image-label">Output Image</div>
+                    <div class="image-wrapper">
+                        <img src="{{ image_upload.output_image.url }}" alt="Output Image" class="result-image">
+                        <div class="image-dimensions">48x48 pixels</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <a href="{{ image_upload.output_image.url }}" download class="btn btn-success">
+                    Download Output
+                </a>
+                <a href="{% url 'account:home' %}" class="btn btn-primary">
+                    Upload Another
+                </a>
+            </div>
+            {% else %}
+            <div class="processing-status">
+                <div class="status-icon">⏳</div>
+                <div class="status-text">Processing in progress...</div>
+            </div>
+            <div class="action-buttons">
+                <button onclick="window.location.reload()" class="btn btn-secondary">
+                    Refresh Page
+                </button>
+                <a href="{% url 'account:home' %}" class="btn btn-primary">
+                    Back to Home
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
-
-    <div class="results-header">
-        <h3>Processing Complete</h3>
-        <div class="upload-info">Uploaded: {{ image_upload.uploaded_at|date:"F d, Y at H:i" }}</div>
-    </div>
-
-    {% if image_upload.processed %}
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-        <a href="{{ image_upload.output_image.url }}" download class="btn btn-success">Download Output</a>
-        <a href="{% url 'account:home' %}" class="btn btn-primary">Upload Another</a>
-    </div>
-
-    <div class="processing-status success">✓ Processing completed successfully!</div>
-
-    <!-- Images Comparison -->
-    <div class="comparison">
-        <div class="image-box">
-            <div class="image-label">Input Image</div>
-            <img src="{{ image_upload.input_image.url }}" alt="Input" class="result-image">
-            <div class="image-dimensions">96x96 px</div>
-        </div>
-        <div class="image-box">
-            <div class="image-label">Output Image</div>
-            <img src="{{ image_upload.output_image.url }}" alt="Output" class="result-image">
-            <div class="image-dimensions">48x48 px</div>
-        </div>
-    </div>
-
-    <!-- Metrics -->
-    <div class="metrics">
-        <h3>Comparison Metrics</h3>
-        <p><strong>MSE:</strong> {{ metrics.MSE }}</p>
-        <p><strong>PSNR:</strong> {{ metrics.PSNR }}</p>
-        <p><strong>SSIM:</strong> {{ metrics.SSIM }}</p>
-    </div>
-
-    <!-- Charts -->
-    <div class="charts">
-        <h3>Pixel Difference Histogram</h3>
-        <canvas id="differenceChart"></canvas>
-        <h3>Input vs Output Histogram</h3>
-        <canvas id="histogramChart"></canvas>
-    </div>
-
-    {% else %}
-    <div class="processing-status in-progress">⏳ Processing in progress...</div>
-    <div class="action-buttons">
-        <button onclick="window.location.reload()" class="btn btn-secondary">Refresh</button>
-        <a href="{% url 'account:home' %}" class="btn btn-primary">Back to Home</a>
-    </div>
-    {% endif %}
-
-</div>
-
-{% if image_upload.processed %}
-<script>
-const pixelDiff = {{ metrics.pixel_diff_histogram|default:"[]"|safe }};
-const inputHist = {{ metrics.input_hist|default:"[]"|safe }};
-const outputHist = {{ metrics.output_hist|default:"[]"|safe }};
-
-// Pixel Difference Histogram
-new Chart(document.getElementById('differenceChart').getContext('2d'), {
-    type: 'line',
-    data: {
-        labels: [...Array(256).keys()],
-        datasets: [{
-            label:'Pixel Difference Histogram',
-            data: pixelDiff,
-            borderColor:'rgba(255,159,64,1)',
-            backgroundColor:'rgba(255,159,64,0.2)',
-            fill:true,
-            tension:0.3
-        }]
-    },
-    options: {
-        responsive:true,
-        scales:{
-            x:{ title:{ display:true, text:'Pixel Intensity Difference' } },
-            y:{ title:{ display:true, text:'Frequency' }, beginAtZero:true }
-        }
-    }
-});
-
-// Input vs Output Histogram
-new Chart(document.getElementById('histogramChart').getContext('2d'), {
-    type: 'line',
-    data: {
-        labels: [...Array(256).keys()],
-        datasets:[
-            { label:'Input Image', data: inputHist, borderColor:'rgba(54,162,235,1)', fill:false },
-            { label:'Output Image', data: outputHist, borderColor:'rgba(255,99,132,1)', fill:false }
-        ]
-    },
-    options: {
-        responsive:true,
-        scales:{
-            y:{ beginAtZero:true, title:{ display:true, text:'Frequency' } },
-            x:{ title:{ display:true, text:'Pixel Intensity' } }
-        }
-    }
-});
-</script>
-{% endif %}
-
 </body>
 </html>
