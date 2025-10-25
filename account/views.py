@@ -1,5 +1,6 @@
 import io
 import os
+import cv2
 import numpy as np
 import tensorflow as tf
 from PIL import Image
@@ -10,6 +11,7 @@ from django.utils import timezone
 from datetime import datetime
 from django.core.files.base import ContentFile
 from django.shortcuts import render, redirect, get_object_or_404
+from tensorflow.keras.models import Sequential
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from .forms import (CustomUserCreationForm, CustomLoginForm, UserUpdateForm, 
@@ -18,11 +20,17 @@ from .models import CustomUser, OTP, ImageUpload
 from django.conf import settings
 
 
-# Autoencoder model for image processing
+# ---------------------- Autoencoder ----------------------
 class EnhancedAutoEncoder(tf.keras.Model):
+    """
+    Enhanced Autoencoder with Batch Normalization for image reconstruction.
+    Input: 96x96x3 RGB images
+    Output: 96x96x3 reconstructed RGB images
+    """
     def __init__(self, **kwargs):
         super(EnhancedAutoEncoder, self).__init__(**kwargs)
-        # Encoder architecture
+        
+        # Encoder: 96x96x3 -> 12x12x16
         self.encoder = tf.keras.Sequential([
             tf.keras.layers.Input(shape=(96, 96, 3)),
             tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
@@ -35,7 +43,8 @@ class EnhancedAutoEncoder(tf.keras.Model):
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.MaxPooling2D((2, 2), padding='same')
         ], name="encoder")
-        # Decoder architecture
+        
+        # Decoder: 12x12x16 -> 96x96x3
         self.decoder = tf.keras.Sequential([
             tf.keras.layers.Conv2DTranspose(16, (3, 3), strides=2, activation='relu', padding='same'),
             tf.keras.layers.BatchNormalization(),
@@ -52,9 +61,16 @@ class EnhancedAutoEncoder(tf.keras.Model):
         return decoded
 
 
-# Load autoencoder model
+
+
+# ---------------------- Load Models ----------------------
 MODEL_PATH = os.path.join(settings.BASE_DIR, 'enhanced_autoencoder.keras')
+PROJECTOR_PATH = os.path.join(settings.BASE_DIR, 'rgb_projector.keras')
+
 autoencoder_model = None
+encoder = None
+partial_decoder = None
+rgb_projector = None
 
 try:
     if os.path.exists(MODEL_PATH):
@@ -62,12 +78,25 @@ try:
             MODEL_PATH,
             custom_objects={'EnhancedAutoEncoder': EnhancedAutoEncoder}
         )
-        print(f"Model loaded successfully from {MODEL_PATH}")
+        print(f"✓ Autoencoder loaded from {MODEL_PATH}")
+        
+        encoder = autoencoder_model.get_layer("encoder")
+        
+        # Partial decoder: stops at 48x48 output
+        decoder = autoencoder_model.get_layer("decoder")
+        partial_decoder = Sequential(decoder.layers[:4], name="partial_decoder")
+        partial_decoder.build(input_shape=(None, 12, 12, 16))
+        
+        if os.path.exists(PROJECTOR_PATH):
+            rgb_projector = tf.keras.models.load_model(PROJECTOR_PATH)
+            print(f"✓ RGB Projector loaded from {PROJECTOR_PATH}")
+        else:
+            print(f"✗ RGB Projector not found at {PROJECTOR_PATH}")
     else:
-        print(f"Model file not found at {MODEL_PATH}")
+        print(f"✗ Autoencoder model not found at {MODEL_PATH}")
 except Exception as e:
-    print(f"Error loading model: {e}")
-    autoencoder_model = None
+    print(f"✗ Error loading models: {e}")
+
 
 
 def get_session_info(request):
@@ -82,7 +111,7 @@ def get_session_info(request):
 
 
 def validate_image(image_file):
-    """Validate image properties (format, size, dimensions, color)."""
+    """Validate uploaded image."""
     try:
         if image_file.size > 1 * 1024 * 1024:
             return False, "Image size must be less than 1MB."
@@ -92,12 +121,11 @@ def validate_image(image_file):
         if img.size != (96, 96):
             return False, "Image must be exactly 96x96 pixels."
         if img.mode not in ['RGB', 'RGBA']:
-            return False, "Image must be in RGB or RGBA color format."
-        if img.mode == 'RGBA':
-            img = img.convert('RGB')
+            return False, "Image must be RGB or RGBA."
         return True, None
     except Exception as e:
         return False, f"Error validating image: {str(e)}"
+
 
 
 @login_required
@@ -154,30 +182,43 @@ def results_view(request, pk):
 
 
 def process_image(image_upload):
-    """Process uploaded image using the trained autoencoder."""
-    try:
-        if autoencoder_model is None:
-            raise Exception("Model not loaded.")
-        img = Image.open(image_upload.input_image)
-        if img.mode == 'RGBA':
-            img = img.convert('RGB')
-        if img.size != (96, 96):
-            img = img.resize((96, 96), Image.Resampling.LANCZOS)
-        img_array = np.expand_dims(np.array(img).astype('float32') / 255.0, axis=0)
-        processed_array = autoencoder_model.predict(img_array, verbose=0)[0]
-        processed_img = Image.fromarray(np.clip(processed_array * 255, 0, 255).astype('uint8'))
-        output_io = io.BytesIO()
-        processed_img.save(output_io, format='PNG')
-        output_io.seek(0)
-        filename = f"processed_{image_upload.id}.png"
-        image_upload.output_image.save(filename, ContentFile(output_io.read()), save=False)
-        image_upload.processed = True
-        image_upload.save()
-    except Exception as e:
-        print(f"Error processing image: {e}")
-        image_upload.processed = False
-        image_upload.save()
-        raise
+    """Process image using autoencoder and projector."""
+    if encoder is None or partial_decoder is None or rgb_projector is None:
+        raise Exception("Models not loaded properly.")
+    
+    img = Image.open(image_upload.input_image)
+    if img.mode == 'RGBA':
+        img = img.convert('RGB')
+    if img.size != (96, 96):
+        img = img.resize((96, 96), Image.Resampling.LANCZOS)
+    
+    # CLAHE + Gamma preprocessing
+    img_cv = np.array(img)
+    lab = cv2.cvtColor(img_cv, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    l = clahe.apply(l)
+    lab = cv2.merge((l, a, b))
+    img_cv = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+    gamma = 1.2
+    img_cv = np.power(img_cv / 255.0, gamma)
+    img_cv = np.clip(img_cv * 255, 0, 255).astype('uint8')
+    
+    img_array = np.expand_dims(img_cv.astype('float32') / 255.0, axis=0)
+    
+    encoded = encoder.predict(img_array, verbose=0)
+    reduced_features = partial_decoder.predict(encoded, verbose=0)
+    reduced_rgb = rgb_projector.predict(reduced_features, verbose=0)[0]
+    
+    reduced_img = Image.fromarray(np.clip(reduced_rgb * 255, 0, 255).astype('uint8'))
+    output_io = io.BytesIO()
+    reduced_img.save(output_io, format='PNG')
+    output_io.seek(0)
+    
+    filename = f"reduced_{image_upload.id}.png"
+    image_upload.output_image.save(filename, ContentFile(output_io.read()), save=False)
+    image_upload.processed = True
+    image_upload.save()
 
 
 @login_required
