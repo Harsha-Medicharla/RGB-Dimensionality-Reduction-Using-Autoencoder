@@ -5,19 +5,22 @@ Django settings for user project.
 from pathlib import Path
 import environ
 import os
+import dj_database_url
 
 env = environ.Env()
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-
-SECRET_KEY = env('SECRET_KEY')
-DEBUG = env.bool('DEBUG', default=False)
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Read .env file if it exists
+env_file = os.path.join(BASE_DIR, '.env')
+if os.path.exists(env_file):
+    environ.Env.read_env(env_file)
 
-ALLOWED_HOSTS = []
+SECRET_KEY = env('SECRET_KEY', default='your-secret-key-here-change-in-production')
+DEBUG = env.bool('DEBUG', default=False)
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -32,6 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -61,12 +65,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'user.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Use PostgreSQL on Render, SQLite locally
+if 'DATABASE_URL' in os.environ:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -91,12 +105,22 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static'] if os.path.exists(BASE_DIR / 'static') else []
+
+# WhiteNoise configuration
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Media files (User uploaded content)
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
@@ -121,23 +145,27 @@ MESSAGE_TAGS = {
 }
 
 # Session Configuration
-SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds (change to desired timeout)
-SESSION_SAVE_EVERY_REQUEST = False  # Update session expiry on every request
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session even if browser closes (until timeout)
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
-SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_SECURE = not DEBUG  # Use secure cookies in production
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Email Configuration
-
-# For development, use console backend (prints emails to console)
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# For production with Gmail, uncomment and configure:
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'userauth.autoencoder@gmail.com' 
-EMAIL_HOST_PASSWORD = 'zoqg ncnp dkqj ijst'
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='userauth.autoencoder@gmail.com')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='zoqg ncnp dkqj ijst')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Security Settings for Production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    CSRF_COOKIE_SECURE = True

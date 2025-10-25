@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: django-autoencoder
+    env: python
+    region: oregon
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn user.wsgi:application"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: django-autoencoder-db
+          property: connectionString
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+
+databases:
+  - name: django-autoencoder-db
+    databaseName: autoencoder_db
+    user: autoencoder_user
+    region: oregon
