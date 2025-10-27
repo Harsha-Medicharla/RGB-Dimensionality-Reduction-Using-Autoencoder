@@ -14,8 +14,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-
+ALLOWED_HOSTS_STR = os.environ.get('ALLOWED_HOSTS', '')
+if ALLOWED_HOSTS_STR:
+    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',')]
+else:
+    # Default for development
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    # Add Render domain in production
+    if not DEBUG:
+        ALLOWED_HOSTS.extend([
+            'rgb-dimensionality-reduction-using.onrender.com',
+            '.onrender.com'  # Allow all Render subdomains
+        ])
 
 # Application definition
 INSTALLED_APPS = [
