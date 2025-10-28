@@ -1,12 +1,12 @@
 """
-Django settings for user project.
+Django settings for user project - Optimized for Render deployment
 """
 
 from pathlib import Path
 import os
 import dj_database_url
 from django.contrib.messages import constants as messages
-
+import logging
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'account',
 ]
 
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -49,7 +48,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
 
 ROOT_URLCONF = 'user.urls'
 
@@ -71,12 +69,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'user.wsgi.application'
 
-
 # Database: PostgreSQL on Render, SQLite locally
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     DATABASES = {
-        "default": dj_database_url.config(default=os.environ.get("DATABASE_URL"))
+        "default": dj_database_url.config(
+            default=os.environ.get("DATABASE_URL"),
+            conn_max_age=600,  # Connection pooling
+            conn_health_checks=True,
+        )
     }
 else:
     DATABASES = {
@@ -86,7 +87,6 @@ else:
         }
     }
 
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -95,13 +95,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
 
 # Static files
 STATIC_URL = '/static/'
@@ -114,22 +112,17 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
-
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 AUTH_USER_MODEL = 'account.CustomUser'
-
 
 # Auth redirects
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
-
 
 # Bootstrap message tags
 MESSAGE_TAGS = {
@@ -140,13 +133,12 @@ MESSAGE_TAGS = {
     messages.ERROR: 'error',
 }
 
-
-# Session
-SESSION_COOKIE_AGE = 1800
+# Session - Extended timeout for model loading
+SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-
+SESSION_SAVE_EVERY_REQUEST = False  # Don't save session on every request
 
 # Email (Gmail SMTP)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -156,7 +148,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'userauth.autoencoder@gmail.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'your-password-here')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
+EMAIL_TIMEOUT = 30  # 30 seconds timeout for email sending
 
 # Production security
 if not DEBUG:
@@ -166,3 +158,68 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     CSRF_COOKIE_SECURE = True
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'django_debug.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO' if not DEBUG else 'DEBUG',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'account': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# TensorFlow optimizations
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN warnings
+
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB
+
+print("=" * 60)
+print(f"Django Settings Loaded")
+print(f"DEBUG: {DEBUG}")
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+print(f"DATABASE: {'PostgreSQL' if DATABASE_URL else 'SQLite'}")
+print(f"MEDIA_ROOT: {MEDIA_ROOT}")
+print(f"STATIC_ROOT: {STATIC_ROOT}")
+print("=" * 60)
