@@ -9,6 +9,7 @@ from django.contrib.messages import constants as messages
 import logging
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+PORT = os.getenv('PORT', '8000')
 
 # Security
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
@@ -140,20 +141,12 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False  # Don't save session on every request
 
-# Email (Gmail SMTP)
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'userauth.autoencoder@gmail.com')
-# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'your-password-here')
-# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-# EMAIL_TIMEOUT = 30  # 30 seconds timeout for email sending
-
 EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
 SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-DEFAULT_FROM_EMAIL = os.getenv("FROM_EMAIL")
+DEFAULT_FROM_EMAIL = "userauthentication.autoencoder@gmail.com"
+EMAIL_HOST_USER = "userauthentication.autoencoder@gmail.com"
+
 
 # Production 
 if not DEBUG:
