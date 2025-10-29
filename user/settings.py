@@ -139,13 +139,12 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage"
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        "BACKEND": "whitenoise.storage.StaticFilesStorage"  # Simplest, no compression
     },
 }
 
 # Compatibility for django-cloudinary-storage with Django 4.2+
-# This prevents the AttributeError during collectstatic
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'account.CustomUser'

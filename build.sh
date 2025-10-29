@@ -38,17 +38,23 @@ mkdir -p media/uploads/input
 mkdir -p media/uploads/output
 echo "✓ Media directories created"
 
-# Collect static files
+# Create static directory if it doesn't exist
 echo ""
-echo "Collecting static files..."
-python manage.py collectstatic --no-input
-echo "✓ Static files collected"
+echo "Creating static directory..."
+mkdir -p static
+echo "✓ Static directory created"
 
-# Run migrations
+# Run migrations BEFORE collectstatic
 echo ""
 echo "Running database migrations..."
 python manage.py migrate --no-input
 echo "✓ Migrations completed"
+
+# Collect static files with --clear flag
+echo ""
+echo "Collecting static files..."
+python manage.py collectstatic --no-input --clear
+echo "✓ Static files collected"
 
 # Check database connection
 echo ""
