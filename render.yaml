@@ -51,3 +51,6 @@ databases:
     user: autoencoder_user
     region: oregon
     plan: starter  # or free
+envVars:
+  - key: PORT
+    value: 8000

@@ -7,6 +7,10 @@ import os
 import dj_database_url
 from django.contrib.messages import constants as messages
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PORT = os.getenv('PORT', '8000')
@@ -25,7 +29,7 @@ else:
     if not DEBUG:
         ALLOWED_HOSTS.extend([
             'rgb-dimensionality-reduction-using.onrender.com',
-            '.onrender.com'  # Allow all Render subdomains
+            '.onrender.com'
         ])
 
 # Application definition
@@ -35,8 +39,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',  # Must be before staticfiles
     'django.contrib.staticfiles',
+    'cloudinary',
     'account',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -76,7 +83,7 @@ if DATABASE_URL:
     DATABASES = {
         "default": dj_database_url.config(
             default=os.environ.get("DATABASE_URL"),
-            conn_max_age=600,  # Connection pooling
+            conn_max_age=600,
             conn_health_checks=True,
         )
     }
@@ -107,15 +114,35 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# WhiteNoise Storage
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
-}
-
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudinary Configuration
+USE_CLOUDINARY = not DEBUG and all([
+    os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    os.environ.get('CLOUDINARY_API_KEY'),
+    os.environ.get('CLOUDINARY_API_SECRET')
+])
+
+if USE_CLOUDINARY:
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET')
+    }
+
+# Storage Configuration
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"
+    } if USE_CLOUDINARY else {
+        "BACKEND": "django.core.files.storage.FileSystemStorage"
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'account.CustomUser'
@@ -134,31 +161,29 @@ MESSAGE_TAGS = {
     messages.ERROR: 'error',
 }
 
-# Session - Extended timeout for model loading
+# Session
 SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_SAVE_EVERY_REQUEST = False  # Don't save session on every request
+SESSION_SAVE_EVERY_REQUEST = False
 
+# Email Configuration
 EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
 SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 DEFAULT_FROM_EMAIL = "userauthentication.autoencoder@gmail.com"
 EMAIL_HOST_USER = "userauthentication.autoencoder@gmail.com"
 
-
-# Production 
+# Production Security
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-else:
-    SECURE_SSL_REDIRECT = False
 
 # Logging Configuration
 LOGGING = {
@@ -169,19 +194,10 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django_debug.log',
             'formatter': 'verbose',
         },
     },
@@ -195,11 +211,6 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': False,
-        },
         'account': {
             'handlers': ['console'],
             'level': 'INFO',
@@ -209,8 +220,8 @@ LOGGING = {
 }
 
 # TensorFlow optimizations
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB
@@ -219,6 +230,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB
 print("=" * 60)
 print(f"Django Settings Loaded")
 print(f"DEBUG: {DEBUG}")
+print(f"USE_CLOUDINARY: {USE_CLOUDINARY}")
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 print(f"DATABASE: {'PostgreSQL' if DATABASE_URL else 'SQLite'}")
 print(f"MEDIA_ROOT: {MEDIA_ROOT}")
