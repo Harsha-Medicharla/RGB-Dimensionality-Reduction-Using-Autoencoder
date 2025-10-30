@@ -193,12 +193,13 @@ def validate_image(image_file):
             logger.warning(f"Invalid mode: {img.mode}")
             return False, "Image must be RGB or RGBA."
         
+        image_file.seek(0)
+        
         logger.info("✓ Image validation passed")
         return True, None
     except Exception as e:
         logger.error(f"Image validation error: {str(e)}")
         return False, f"Error validating image: {str(e)}"
-
 
 @login_required
 def home(request):
@@ -222,6 +223,9 @@ def home(request):
                     'form': form,
                     'session_time_remaining': session_time_remaining
                 })
+            
+            # CRITICAL FIX: Reset file pointer after validation
+            image_file.seek(0)
             
             # Save image upload
             logger.info("Saving image upload to database...")
