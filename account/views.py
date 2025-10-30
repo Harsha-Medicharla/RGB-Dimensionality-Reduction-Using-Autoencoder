@@ -269,17 +269,63 @@ def home(request):
 
 @login_required
 def results_view(request, pk):
-    """Display processed image results."""
+    """Display processed image results with metrics and visualization."""
     logger.info(f"RESULTS view called for upload ID: {pk}")
+    
+    # Get session info and image upload
     session_time_remaining = get_session_info(request)
     image_upload = get_object_or_404(ImageUpload, pk=pk, user=request.user)
     logger.info(f"Image upload found - Processed: {image_upload.processed}")
     
+    # Initialize metrics as None
+    metrics = None
+    
+    # Only compute metrics if processing is complete
+    if image_upload.processed and image_upload.output_image:
+        try:
+            # Load input and output images
+            input_img = Image.open(image_upload.input_image).convert('RGB')
+            output_img = Image.open(image_upload.output_image).convert('RGB')
+
+            # Resize input to match output size for comparison (48x48)
+            input_resized = input_img.resize((48, 48), Image.Resampling.LANCZOS)
+
+            # Convert images to numpy arrays
+            orig_array = np.array(input_resized).astype('float32')
+            final_array = np.array(output_img).astype('float32')
+
+            # Compute metrics
+            mse_val = mean_squared_error(orig_array, final_array)
+            psnr_val = peak_signal_noise_ratio(orig_array, final_array, data_range=255)
+            ssim_val = structural_similarity(orig_array, final_array, channel_axis=2, data_range=255)
+
+            # Compute pixel difference histogram (absolute difference)
+            diff_array = np.abs(orig_array - final_array).astype('uint8')
+            diff_hist = np.histogram(diff_array.flatten(), bins=256, range=(0, 255))[0].tolist()
+
+            # Compute input and output histograms
+            input_hist = np.histogram(orig_array.flatten(), bins=256, range=(0, 255))[0].tolist()
+            output_hist = np.histogram(final_array.flatten(), bins=256, range=(0, 255))[0].tolist()
+
+            metrics = {
+                'MSE': round(mse_val, 4),
+                'PSNR': round(psnr_val, 4),
+                'SSIM': round(ssim_val, 4),
+                'pixel_diff_histogram': diff_hist,
+                'input_hist': input_hist,
+                'output_hist': output_hist
+            }
+            logger.info(f"Metrics computed successfully: MSE={mse_val}, PSNR={psnr_val}, SSIM={ssim_val}")
+            
+        except Exception as e:
+            logger.error(f"Error computing metrics: {str(e)}")
+            # metrics remains None, template will handle gracefully
+
     return render(request, 'account/results.html', {
         'image_upload': image_upload,
-        'session_time_remaining': session_time_remaining
+        'session_time_remaining': session_time_remaining,
+        'metrics': metrics
     })
-
 
 def process_image(image_upload):
     """Process image using autoencoder and projector."""
