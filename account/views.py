@@ -23,6 +23,7 @@ import time
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
+from skimage.metrics import mean_squared_error, peak_signal_noise_ratio, structural_similarity
 
 # Configure logging
 logger = logging.getLogger(__name__)
